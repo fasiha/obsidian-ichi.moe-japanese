@@ -47,11 +47,11 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 > [!IchiMoe]- 中
 >
 > - 中
->   - 【ちゅう】
+>   - 中 【ちゅう】
 >     - (n) medium (size); average (grade, level, etc.); middle
 >     - (suf) in; within; out of (e.g. ten people); among
 >     - (suf) during; while; in (the course of); within (a period)
->   - 【じゅう】
+>   - 中 【じゅう】
 >     - (suf) (all) through (e.g. the night); throughout (e.g. the year)
 >     - (suf) within (e.g. the week); in the course of (e.g. today)
 >     - (suf) all over; throughout (e.g. the world)

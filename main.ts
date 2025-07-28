@@ -146,9 +146,8 @@ export default class IchiMoePlugin extends Plugin {
 						// Strip leading numbers (e.g., "1. 中 【ちゅう】" -> "中 【ちゅう】")
 						const cleanedDtText = dtText.replace(/^\d+\.\s*/, '');
 
-						// Parse the reading
-						const match = cleanedDtText.match(/^([^【]+)(?:【([^】]+)】)?/);
-						const reading = match?.[2] || cleanedDtText;
+						// Use the cleaned text as-is for the reading (no parsing)
+						const reading = cleanedDtText;
 
 						// Get definitions for this alternative from the following dd element
 						const $ddElement = $dtElement.next('dd');
@@ -376,7 +375,7 @@ export default class IchiMoePlugin extends Plugin {
 
 					wordInfo.alternatives.forEach((alternative) => {
 						// Second level: alternative readings
-						analysisText += `>   - 【${alternative.reading}】\n`;
+						analysisText += `>   - ${alternative.reading}\n`;
 
 						// Third level: definitions for this reading
 						alternative.definitions.forEach((def) => {
