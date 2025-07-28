@@ -25,20 +25,36 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 > [!IchiMoe]- 日本語の勉強が好き
 >
 > - 日本語 【にほんご】
->   - [n] Japanese (language)
+>   - (n) Japanese (language)
 > - の
->   - [prt] indicates possessive (☝️ occasionally ん, orig. written 乃 or 之)
->   - [prt] nominalizes verbs and adjectives
->   - [prt] substitutes for "ga" in subordinate phrases
+>   - (prt) indicates possessive (☝️ occasionally ん, orig. written 乃 or 之)
+>   - (prt) nominalizes verbs and adjectives
+>   - (prt) substitutes for "ga" in subordinate phrases
 > - 勉強 【べんきょう】
->   - [n,vs,vt] study
->   - [n,vs,vi] diligence; working hard
->   - [n] experience; lesson (for the future)
+>   - (n,vs,vt) study
+>   - (n,vs,vi) diligence; working hard
+>   - (n) experience; lesson (for the future)
 > - が
->   - [prt] indicates the subject of a sentence
->   - [prt] indicates possession (☝️ literary in modern Japanese; usu. written as ヶ in place names)
+>   - (prt) indicates the subject of a sentence
+>   - (prt) indicates possession (☝️ literary in modern Japanese; usu. written as ヶ in place names)
 > - 好き 【すき】
->   - [adj-na,n] liking; being fond of; to one's liking; to one's taste; preferred; favourite
+>   - (adj-na,n) liking; being fond of; to one's liking; to one's taste; preferred; favourite
+```
+
+**For words with multiple readings** (like 中):
+
+```markdown
+> [!IchiMoe]- 中
+>
+> - 中
+>   - 【ちゅう】
+>     - (n) medium (size); average (grade, level, etc.); middle
+>     - (suf) in; within; out of (e.g. ten people); among
+>     - (suf) during; while; in (the course of); within (a period)
+>   - 【じゅう】
+>     - (suf) (all) through (e.g. the night); throughout (e.g. the year)
+>     - (suf) within (e.g. the week); in the course of (e.g. today)
+>     - (suf) all over; throughout (e.g. the world)
 ```
 
 ## Installation

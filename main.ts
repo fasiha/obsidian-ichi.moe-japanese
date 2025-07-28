@@ -1,10 +1,16 @@
 import * as cheerio from 'cheerio';
 import { Editor, MarkdownView, Notice, Plugin, requestUrl } from 'obsidian';
 
+interface Alternative {
+	reading: string;
+	definitions: string[];
+}
+
 interface WordInfo {
 	word: string;
-	reading?: string;
-	definitions: string[];
+	alternatives?: Alternative[]; // For multiple readings/forms
+	reading?: string; // For single reading (backwards compatibility)
+	definitions?: string[]; // For single form (backwards compatibility)
 	pos?: string; // part of speech
 }
 
@@ -125,68 +131,136 @@ export default class IchiMoePlugin extends Plugin {
 				// Get romanized text from gloss-rtext
 				const romanizedText = $glossElement.find('.gloss-rtext em').text().trim();
 
-				// Get Japanese word and reading from dt element
-				const dtElement = $glossElement.find('.gloss-content dt').first();
-				const dtText = dtElement.text().trim();
+				// Check for alternatives structure
+				const dtElements = $glossElement.find('.gloss-content .alternatives dt');
 
-				let word = '';
-				let reading: string | undefined;
+				if (dtElements.length > 1) {
+					// Multiple alternatives case (like 中 with ちゅう and じゅう)
+					const baseWord = romanizedText || 'unknown';
+					const alternatives: Alternative[] = [];
 
-				if (dtText) {
-					// Parse "日本語 【にほんご】" format
-					const match = dtText.match(/^([^【]+)(?:【([^】]+)】)?/);
-					if (match) {
-						word = match[1].trim();
-						reading = match[2] ? match[2].trim() : undefined;
-					} else {
-						// Fallback to the whole text if pattern doesn't match
-						word = dtText;
-					}
-				} else if (romanizedText) {
-					// Fallback to romanized text if no dt found
-					word = romanizedText;
-				}
+					dtElements.each((dtIndex: number, dtElement: any) => {
+						const $dtElement = $(dtElement);
+						const dtText = $dtElement.text().trim();
 
-				if (!word) {
-					return;
-				}
+						// Strip leading numbers (e.g., "1. 中 【ちゅう】" -> "中 【ちゅう】")
+						const cleanedDtText = dtText.replace(/^\d+\.\s*/, '');
 
-				// Get definitions from gloss-desc elements
-				const definitions: string[] = [];
-				$glossElement.find('li').each((defIndex: number, liElement: any) => {
-					const $liElement = $(liElement);
+						// Parse the reading
+						const match = cleanedDtText.match(/^([^【]+)(?:【([^】]+)】)?/);
+						const reading = match?.[2] || cleanedDtText;
 
-					// Get part of speech and definition text
-					const posDesc = $liElement.find('.pos-desc').text().trim();
-					const glossDesc = $liElement.find('.gloss-desc').text().trim();
+						// Get definitions for this alternative from the following dd element
+						const $ddElement = $dtElement.next('dd');
+						const definitions: string[] = [];
 
-					if (glossDesc) {
-						let definition = '';
-						if (posDesc) {
-							definition += `(${posDesc}) `;
-						}
-						definition += glossDesc;
+						$ddElement.find('li').each((liIndex: number, liElement: any) => {
+							const $liElement = $(liElement);
 
-						// Check for notes and add them with ☝️ emoji
-						const note = $liElement.find('.sense-info-note');
-						if (note.length > 0) {
-							const noteText = note.attr('title') || note.attr('data-tooltip');
-							if (noteText) {
-								definition += ` (☝️ ${noteText})`;
+							const posDesc = $liElement.find('.pos-desc').text().trim();
+							const glossDesc = $liElement.find('.gloss-desc').text().trim();
+
+							if (glossDesc) {
+								let definition = '';
+								if (posDesc) {
+									definition += `(${posDesc}) `;
+								}
+								definition += glossDesc;
+
+								// Check for notes
+								const note = $liElement.find('.sense-info-note');
+								if (note.length > 0) {
+									const noteText = note.attr('title') || note.attr('data-tooltip');
+									if (noteText) {
+										definition += ` (☝️ ${noteText})`;
+									}
+								}
+
+								definitions.push(definition);
 							}
+						});
+
+						if (definitions.length > 0) {
+							alternatives.push({ reading, definitions });
 						}
+					});
 
-						definitions.push(definition);
+					if (alternatives.length > 0) {
+						// Extract the base word from the first alternative
+						const firstDtText = dtElements
+							.first()
+							.text()
+							.trim()
+							.replace(/^\d+\.\s*/, '');
+						const wordMatch = firstDtText.match(/^([^【]+)/);
+						const word = wordMatch?.[1]?.trim() || baseWord;
+
+						words.push({
+							word,
+							alternatives,
+						});
 					}
-				});
+				} else {
+					// Single alternative case (existing logic)
+					const dtElement = $glossElement.find('.gloss-content dt').first();
+					const dtText = dtElement.text().trim();
 
-				if (definitions.length > 0) {
-					const wordInfo = {
-						word,
-						reading,
-						definitions,
-					};
-					words.push(wordInfo);
+					let word = '';
+					let reading: string | undefined;
+
+					if (dtText) {
+						// Strip leading numbers and parse
+						const cleanedDtText = dtText.replace(/^\d+\.\s*/, '');
+						const match = cleanedDtText.match(/^([^【]+)(?:【([^】]+)】)?/);
+						if (match) {
+							word = match[1].trim();
+							reading = match[2] ? match[2].trim() : undefined;
+						} else {
+							word = cleanedDtText;
+						}
+					} else if (romanizedText) {
+						word = romanizedText;
+					}
+
+					if (!word) {
+						return;
+					}
+
+					// Get definitions
+					const definitions: string[] = [];
+					$glossElement.find('li').each((defIndex: number, liElement: any) => {
+						const $liElement = $(liElement);
+
+						const posDesc = $liElement.find('.pos-desc').text().trim();
+						const glossDesc = $liElement.find('.gloss-desc').text().trim();
+
+						if (glossDesc) {
+							let definition = '';
+							if (posDesc) {
+								definition += `(${posDesc}) `;
+							}
+							definition += glossDesc;
+
+							// Check for notes
+							const note = $liElement.find('.sense-info-note');
+							if (note.length > 0) {
+								const noteText = note.attr('title') || note.attr('data-tooltip');
+								if (noteText) {
+									definition += ` (☝️ ${noteText})`;
+								}
+							}
+
+							definitions.push(definition);
+						}
+					});
+
+					if (definitions.length > 0) {
+						words.push({
+							word,
+							reading,
+							definitions,
+						});
+					}
 				}
 			});
 		}
@@ -205,10 +279,14 @@ export default class IchiMoePlugin extends Plugin {
 				let reading: string | undefined;
 
 				if (dtText) {
-					const match = dtText.match(/^([^【]+)(?:【([^】]+)】)?/);
+					// Strip leading numbers and parse
+					const cleanedDtText = dtText.replace(/^\d+\.\s*/, '');
+					const match = cleanedDtText.match(/^([^【]+)(?:【([^】]+)】)?/);
 					if (match) {
 						word = match[1].trim();
 						reading = match[2] ? match[2].trim() : undefined;
+					} else {
+						word = cleanedDtText;
 					}
 				} else if (romanizedText) {
 					word = romanizedText;
@@ -292,17 +370,34 @@ export default class IchiMoePlugin extends Plugin {
 		// Add word breakdown
 		if (sentenceInfo.words.length > 0) {
 			sentenceInfo.words.forEach((wordInfo) => {
-				// First level bullet: word with reading
-				if (wordInfo.reading) {
-					analysisText += `> - ${wordInfo.word} 【${wordInfo.reading}】\n`;
-				} else {
+				if (wordInfo.alternatives && wordInfo.alternatives.length > 0) {
+					// Multiple alternatives case - three-level structure
 					analysisText += `> - ${wordInfo.word}\n`;
-				}
 
-				// Second level bullets: definitions
-				wordInfo.definitions.forEach((def) => {
-					analysisText += `>   - ${def}\n`;
-				});
+					wordInfo.alternatives.forEach((alternative) => {
+						// Second level: alternative readings
+						analysisText += `>   - 【${alternative.reading}】\n`;
+
+						// Third level: definitions for this reading
+						alternative.definitions.forEach((def) => {
+							analysisText += `>     - ${def}\n`;
+						});
+					});
+				} else {
+					// Single alternative case - two-level structure
+					if (wordInfo.reading) {
+						analysisText += `> - ${wordInfo.word} 【${wordInfo.reading}】\n`;
+					} else {
+						analysisText += `> - ${wordInfo.word}\n`;
+					}
+
+					// Second level bullets: definitions
+					if (wordInfo.definitions) {
+						wordInfo.definitions.forEach((def) => {
+							analysisText += `>   - ${def}\n`;
+						});
+					}
+				}
 			});
 		} else {
 			analysisText +=
