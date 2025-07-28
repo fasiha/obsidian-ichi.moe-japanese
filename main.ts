@@ -192,10 +192,30 @@ export default class IchiMoePlugin extends Plugin {
 
 				// Get definitions from gloss-desc elements
 				const definitions: string[] = [];
-				$glossElement.find('.gloss-desc').each((defIndex: number, defElement: any) => {
-					const defText = $(defElement).text().trim();
-					if (defText) {
-						definitions.push(defText);
+				$glossElement.find('li').each((defIndex: number, liElement: any) => {
+					const $liElement = $(liElement);
+
+					// Get part of speech and definition text
+					const posDesc = $liElement.find('.pos-desc').text().trim();
+					const glossDesc = $liElement.find('.gloss-desc').text().trim();
+
+					if (glossDesc) {
+						let definition = '';
+						if (posDesc) {
+							definition += `${posDesc} `;
+						}
+						definition += glossDesc;
+
+						// Check for notes and add them with ☝️ emoji
+						const note = $liElement.find('.sense-info-note');
+						if (note.length > 0) {
+							const noteText = note.attr('title') || note.attr('data-tooltip');
+							if (noteText) {
+								definition += ` (☝️ ${noteText})`;
+							}
+						}
+
+						definitions.push(definition);
 					}
 				});
 
@@ -245,10 +265,32 @@ export default class IchiMoePlugin extends Plugin {
 
 				// Get definitions
 				const definitions: string[] = [];
-				$element.find('.gloss-desc').each((defIndex: number, defElement: any) => {
-					const defText = $(defElement).text().trim();
-					if (defText && !definitions.includes(defText)) {
-						definitions.push(defText);
+				$element.find('li').each((defIndex: number, liElement: any) => {
+					const $liElement = $(liElement);
+
+					// Get part of speech and definition text
+					const posDesc = $liElement.find('.pos-desc').text().trim();
+					const glossDesc = $liElement.find('.gloss-desc').text().trim();
+
+					if (glossDesc) {
+						let definition = '';
+						if (posDesc) {
+							definition += `${posDesc} `;
+						}
+						definition += glossDesc;
+
+						// Check for notes and add them with ☝️ emoji
+						const note = $liElement.find('.sense-info-note');
+						if (note.length > 0) {
+							const noteText = note.attr('title') || note.attr('data-tooltip');
+							if (noteText) {
+								definition += ` (☝️ ${noteText})`;
+							}
+						}
+
+						if (!definitions.includes(definition)) {
+							definitions.push(definition);
+						}
 					}
 				});
 
@@ -283,41 +325,32 @@ export default class IchiMoePlugin extends Plugin {
 		const cursor = editor.getCursor();
 		console.log('IchiMoe: Current cursor position:', cursor);
 
-		let analysisText = '\n\n---\n\n';
+		let analysisText = '\n';
 
-		// Add title
-		analysisText += `**Japanese Analysis: ${sentenceInfo.original}**\n\n`;
-
-		// Add romanization if available
-		if (sentenceInfo.romanization) {
-			analysisText += `*Romanization:* ${sentenceInfo.romanization}\n\n`;
-		}
+		// Create callout with collapsible format
+		analysisText += `> [!IchiMoe]- ${sentenceInfo.original}\n`;
 
 		// Add word breakdown
 		if (sentenceInfo.words.length > 0) {
-			analysisText += '**Word Breakdown:**\n\n';
-
-			sentenceInfo.words.forEach((wordInfo, index) => {
-				analysisText += `${index + 1}. **${wordInfo.word}**`;
-
+			sentenceInfo.words.forEach((wordInfo) => {
+				// First level bullet: word with reading
 				if (wordInfo.reading) {
-					analysisText += ` (${wordInfo.reading})`;
+					analysisText += `> - ${wordInfo.word} 【${wordInfo.reading}】\n`;
+				} else {
+					analysisText += `> - ${wordInfo.word}\n`;
 				}
 
-				analysisText += '\n';
-
-				wordInfo.definitions.forEach((def, defIndex) => {
-					analysisText += `   - ${def}\n`;
+				// Second level bullets: definitions
+				wordInfo.definitions.forEach((def) => {
+					analysisText += `>   - ${def}\n`;
 				});
-
-				analysisText += '\n';
 			});
 		} else {
 			analysisText +=
-				'*No word definitions found. The text might be too complex or ichi.moe might be having issues.*\n\n';
+				'> *No word definitions found. The text might be too complex or ichi.moe might be having issues.*\n';
 		}
 
-		analysisText += '---\n\n';
+		analysisText += '\n';
 
 		console.log('IchiMoe: Final analysis text to insert:');
 		console.log(analysisText);
