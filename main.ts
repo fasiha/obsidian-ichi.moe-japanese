@@ -128,111 +128,131 @@ export default class IchiMoePlugin extends Plugin {
 		const $ = cheerio.load(html);
 		const words: WordInfo[] = [];
 
-		// Find romanization
-		console.log('IchiMoe: Looking for romanization...');
-		const romanizationElement = $('.ds-input').first();
-		const romanization = romanizationElement.text().trim() || undefined;
-		console.log('IchiMoe: Found romanization element count:', $('.ds-input').length);
-		console.log('IchiMoe: Romanization:', romanization);
-
-		// Parse word glosses - ichi.moe shows words in sections
-		console.log('IchiMoe: Looking for .gloss-all elements...');
-		const glossAllElements = $('.gloss-all');
-		console.log('IchiMoe: Found .gloss-all elements:', glossAllElements.length);
-
-		glossAllElements.each((index: number, element: any) => {
-			console.log(`IchiMoe: Processing .gloss-all element ${index + 1}/${glossAllElements.length}`);
-			const $element = $(element);
-
-			// Get the word text
-			const wordElement = $element.find('.ds-text').first();
-			const word = wordElement.text().trim();
-			console.log('IchiMoe: Found word:', JSON.stringify(word));
-
-			if (!word) {
-				console.log('IchiMoe: Skipping empty word');
-				return;
-			}
-
-			// Get reading (furigana)
-			const readingElement = $element.find('.ds-furigana').first();
-			const reading = readingElement.text().trim() || undefined;
-			console.log('IchiMoe: Found reading:', JSON.stringify(reading));
-
-			// Get definitions
-			const definitions: string[] = [];
-			console.log('IchiMoe: Looking for definitions...');
-			$element.find('.gloss-content').each((defIndex: number, defElement: any) => {
-				const $defElement = $(defElement);
-
-				// Extract definition text
-				const defText = $defElement.find('.gloss-content').text().trim();
-				if (defText) {
-					definitions.push(defText);
-				}
-
-				// Alternative: look for definition list items
-				$defElement.find('li').each((liIndex: number, liElement: any) => {
-					const liText = $(liElement).text().trim();
-					if (liText && !definitions.includes(liText)) {
-						definitions.push(liText);
-					}
-				});
-			});
-
-			// Extract definitions from the word info sections
-			$element.find('.word-info').each((wordIndex: number, wordElement: any) => {
-				const $wordElement = $(wordElement);
-
-				// Look for definition content
-				const defList = $wordElement.find('.gloss-content').text().trim();
-
-				if (defList && !definitions.some((def) => def.includes(defList))) {
-					definitions.push(defList);
-				}
-			});
-
-			console.log('IchiMoe: Definitions found for word:', definitions.length);
-			if (word && definitions.length > 0) {
-				const wordInfo = {
-					word,
-					reading,
-					definitions,
-				};
-				console.log('IchiMoe: Adding word info:', wordInfo);
-				words.push(wordInfo);
-			} else {
-				console.log('IchiMoe: Skipping word due to missing definitions:', {
-					word,
-					definitionsCount: definitions.length,
-				});
+		// Find romanization from ds-word elements
+		console.log('IchiMoe: Looking for romanization in .ds-word elements...');
+		const romanizationParts: string[] = [];
+		$('.ds-text .ds-word').each((index: number, element: any) => {
+			const wordText = $(element).text().trim();
+			if (wordText) {
+				romanizationParts.push(wordText);
 			}
 		});
+		const romanization = romanizationParts.length > 0 ? romanizationParts.join(' ') : undefined;
+		console.log('IchiMoe: Found .ds-word elements:', romanizationParts.length);
+		console.log('IchiMoe: Romanization parts:', romanizationParts);
+		console.log('IchiMoe: Combined romanization:', romanization);
 
-		// Alternative parsing approach for different HTML structure
+		// Parse words from the first visible gloss-row
+		console.log('IchiMoe: Looking for .gloss-row elements...');
+		const firstGlossRow = $('.gloss-row').not('.hidden').first();
+		console.log('IchiMoe: Found visible gloss-row:', firstGlossRow.length > 0);
+
+		if (firstGlossRow.length > 0) {
+			const glossElements = firstGlossRow.find('.gloss');
+			console.log('IchiMoe: Found .gloss elements in first row:', glossElements.length);
+
+			glossElements.each((index: number, element: any) => {
+				console.log(`IchiMoe: Processing .gloss element ${index + 1}/${glossElements.length}`);
+				const $glossElement = $(element);
+
+				// Get romanized text from gloss-rtext
+				const romanizedText = $glossElement.find('.gloss-rtext em').text().trim();
+				console.log('IchiMoe: Found romanized text:', JSON.stringify(romanizedText));
+
+				// Get Japanese word and reading from dt element
+				const dtElement = $glossElement.find('.gloss-content dt').first();
+				const dtText = dtElement.text().trim();
+				console.log('IchiMoe: Found dt text:', JSON.stringify(dtText));
+
+				let word = '';
+				let reading: string | undefined;
+
+				if (dtText) {
+					// Parse "日本語 【にほんご】" format
+					const match = dtText.match(/^([^【]+)(?:【([^】]+)】)?/);
+					if (match) {
+						word = match[1].trim();
+						reading = match[2] ? match[2].trim() : undefined;
+					} else {
+						// Fallback to the whole text if pattern doesn't match
+						word = dtText;
+					}
+				} else if (romanizedText) {
+					// Fallback to romanized text if no dt found
+					word = romanizedText;
+				}
+
+				console.log('IchiMoe: Parsed word:', JSON.stringify(word));
+				console.log('IchiMoe: Parsed reading:', JSON.stringify(reading));
+
+				if (!word) {
+					console.log('IchiMoe: Skipping element with no word');
+					return;
+				}
+
+				// Get definitions from gloss-desc elements
+				const definitions: string[] = [];
+				$glossElement.find('.gloss-desc').each((defIndex: number, defElement: any) => {
+					const defText = $(defElement).text().trim();
+					if (defText) {
+						definitions.push(defText);
+					}
+				});
+
+				console.log('IchiMoe: Found definitions:', definitions);
+
+				if (definitions.length > 0) {
+					const wordInfo = {
+						word,
+						reading,
+						definitions,
+					};
+					console.log('IchiMoe: Adding word info:', wordInfo);
+					words.push(wordInfo);
+				} else {
+					console.log('IchiMoe: Skipping word due to no definitions:', word);
+				}
+			});
+		}
+
+		// Fallback parsing if no words found
 		console.log('IchiMoe: Primary parsing found', words.length, 'words');
 		if (words.length === 0) {
-			console.log('IchiMoe: No words found with primary method, trying alternative parsing...');
-			const alternativeElements = $('.word-block, .gloss');
-			console.log('IchiMoe: Found alternative elements:', alternativeElements.length);
+			console.log('IchiMoe: No words found with primary method, trying fallback parsing...');
 
-			// Try parsing word blocks directly
-			alternativeElements.each((index: number, element: any) => {
-				console.log(`IchiMoe: Processing alternative element ${index + 1}/${alternativeElements.length}`);
+			// Try to extract from any .gloss elements
+			$('.gloss').each((index: number, element: any) => {
 				const $element = $(element);
 
-				const word = $element.find('.word, .ds-text').first().text().trim();
-				const reading = $element.find('.reading, .ds-furigana').first().text().trim() || undefined;
+				// Get word from dt or romanized text
+				const dtText = $element.find('dt').first().text().trim();
+				const romanizedText = $element.find('.gloss-rtext em').text().trim();
 
+				let word = '';
+				let reading: string | undefined;
+
+				if (dtText) {
+					const match = dtText.match(/^([^【]+)(?:【([^】]+)】)?/);
+					if (match) {
+						word = match[1].trim();
+						reading = match[2] ? match[2].trim() : undefined;
+					}
+				} else if (romanizedText) {
+					word = romanizedText;
+				}
+
+				if (!word) return;
+
+				// Get definitions
 				const definitions: string[] = [];
-				$element.find('.definition, .gloss-content, li').each((defIndex: number, defElement: any) => {
+				$element.find('.gloss-desc').each((defIndex: number, defElement: any) => {
 					const defText = $(defElement).text().trim();
 					if (defText && !definitions.includes(defText)) {
 						definitions.push(defText);
 					}
 				});
 
-				if (word && definitions.length > 0) {
+				if (definitions.length > 0) {
 					words.push({
 						word,
 						reading,
