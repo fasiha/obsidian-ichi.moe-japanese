@@ -32,29 +32,7 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 >   - (prt) substitutes for "ga" in subordinate phrases
 > - 勉強 【べんきょう】
 >   - (n,vs,vt) study
->   - (n,vs,vi) diligence; working hard
->   - (n) experience; lesson (for the future)
-> - が
->   - (prt) indicates the subject of a sentence
->   - (prt) indicates possession (☝️ literary in modern Japanese; usu. written as ヶ in place names)
-> - 好き 【すき】
->   - (adj-na,n) liking; being fond of; to one's liking; to one's taste; preferred; favourite
-```
-
-**For words with multiple readings** (like 中):
-
-```markdown
-> [!IchiMoe]- 中
->
-> - 中
->   - 中 【ちゅう】
->     - (n) medium (size); average (grade, level, etc.); middle
->     - (suf) in; within; out of (e.g. ten people); among
->     - (suf) during; while; in (the course of); within (a period)
->   - 中 【じゅう】
->     - (suf) (all) through (e.g. the night); throughout (e.g. the year)
->     - (suf) within (e.g. the week); in the course of (e.g. today)
->     - (suf) all over; throughout (e.g. the world)
+>     …
 ```
 
 ## Installation
@@ -92,8 +70,7 @@ This plugin sends text to the external service ichi.moe for analysis. Only the t
 
 ## Credits
 
-- Powered by [ichi.moe](https://ichi.moe) - an excellent Japanese text analyzer
-- Inspired by [ichikasuto](https://github.com/varugasu/ichikasuto) and [obsidian-furigana](https://github.com/fasiha/obsidian-furigana)
+- Powered by [ichi.moe](https://ichi.moe) and Ichiran, an excellent Japanese text analyzer
 
 ## Development
 
