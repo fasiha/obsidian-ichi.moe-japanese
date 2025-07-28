@@ -22,30 +22,23 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 **Generated output**:
 
 ```markdown
----
-
-**Japanese Analysis: 日本語の勉強が好き**
-
-*Romanization:* nihongo no benkyō ga suki
-
-**Word Breakdown:**
-
-1. **日本語** (にほんご)
-   - Japanese (language)
-
-2. **の**
-   - particle indicating possession/association
-
-3. **勉強** (べんきょう) 
-   - study; learning; scholarship
-
-4. **が**
-   - particle indicating subject of sentence
-
-5. **好き** (すき)
-   - liking; being fond of; to one's liking
-
----
+> [!IchiMoe]- 日本語の勉強が好き
+>
+> - 日本語 【にほんご】
+>   - [n] Japanese (language)
+> - の
+>   - [prt] indicates possessive (☝️ occasionally ん, orig. written 乃 or 之)
+>   - [prt] nominalizes verbs and adjectives
+>   - [prt] substitutes for "ga" in subordinate phrases
+> - 勉強 【べんきょう】
+>   - [n,vs,vt] study
+>   - [n,vs,vi] diligence; working hard
+>   - [n] experience; lesson (for the future)
+> - が
+>   - [prt] indicates the subject of a sentence
+>   - [prt] indicates possession (☝️ literary in modern Japanese; usu. written as ヶ in place names)
+> - 好き 【すき】
+>   - [adj-na,n] liking; being fond of; to one's liking; to one's taste; preferred; favourite
 ```
 
 ## Installation
