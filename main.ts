@@ -1,10 +1,22 @@
 import * as cheerio from 'cheerio';
 import { Element } from 'cheerio';
-import { Editor, MarkdownView, Notice, Plugin, requestUrl } from 'obsidian';
+import { Editor, FileSystemAdapter, MarkdownView, normalizePath, Notice, Plugin, requestUrl } from 'obsidian';
+import * as JSZip from 'jszip';
 
 interface Alternative {
 	reading: string;
 	definitions: string[];
+}
+
+interface FuriganaEntry {
+	ruby: string;
+	rt?: string;
+}
+
+interface JmdictEntry {
+	text: string;
+	reading: string;
+	furigana: FuriganaEntry[];
 }
 
 interface WordInfo {
@@ -40,7 +52,7 @@ function getTextToAnalyze(editor: Editor): string {
 /**
  * Send text to ichi.moe and parse the response
  */
-async function analyzeText(editor: Editor) {
+async function analyzeText(editor: Editor, furiganaMap: Map<string, FuriganaEntry[]>) {
 	const text = getTextToAnalyze(editor);
 
 	if (!text) {
@@ -52,12 +64,47 @@ async function analyzeText(editor: Editor) {
 
 	try {
 		const sentenceInfo = await fetchIchiMoeAnalysis(text);
-		insertAnalysis(editor, sentenceInfo);
+		insertAnalysis(editor, sentenceInfo, furiganaMap);
 	} catch (error) {
 		console.error('IchiMoe: Error analyzing text:', error);
 		console.error('IchiMoe: Error stack:', error.stack);
 		new Notice('Failed to analyze text with ichi.moe');
 	}
+}
+
+/**
+ * Format a word with ruby tags using furigana data
+ */
+function formatWordWithRuby(
+	word: string,
+	reading: string | undefined,
+	furiganaMap: Map<string, FuriganaEntry[]>
+): string {
+	if (!reading) {
+		return word;
+	}
+
+	const key = `${word}-${reading}`;
+	const furiganaData = furiganaMap.get(key);
+
+	if (!furiganaData) {
+		// Fallback to bracket notation
+		return `${word} 【${reading}】`;
+	}
+
+	// Build ruby tags from furigana data
+	let result = '';
+	for (const entry of furiganaData) {
+		if (entry.rt) {
+			// Has furigana reading
+			result += `<ruby>${entry.ruby}<rt>${entry.rt}</rt></ruby>`;
+		} else {
+			// Plain kana, no ruby tag needed
+			result += entry.ruby;
+		}
+	}
+
+	return result;
 }
 
 /**
@@ -261,7 +308,7 @@ function parseIchiMoeResponse(html: string, originalText: string): SentenceInfo 
 /**
  * Insert the analysis into the editor
  */
-function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo) {
+function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap: Map<string, FuriganaEntry[]>) {
 	// Get the end position of selection, or current cursor if no selection
 	const selection = editor.getSelection();
 	let insertPosition;
@@ -291,8 +338,14 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo) {
 				analysisText += `> - ${wordInfo.word}\n`;
 
 				wordInfo.alternatives.forEach((alternative) => {
-					// Second level: alternative readings
-					analysisText += `>   - ${alternative.reading}\n`;
+					// Extract word and reading from alternative reading string for furigana lookup
+					const match = alternative.reading.match(/^([^【]+)(?:【([^】]+)】)?/);
+					const altWord = match?.[1]?.trim() || alternative.reading;
+					const altReading = match?.[2]?.trim();
+
+					// Second level: alternative readings with ruby tags
+					const formattedAlt = formatWordWithRuby(altWord, altReading, furiganaMap);
+					analysisText += `>   - ${formattedAlt}\n`;
 
 					// Third level: definitions for this reading
 					alternative.definitions.forEach((def) => {
@@ -301,11 +354,8 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo) {
 				});
 			} else {
 				// Single alternative case - two-level structure
-				if (wordInfo.reading) {
-					analysisText += `> - ${wordInfo.word} 【${wordInfo.reading}】\n`;
-				} else {
-					analysisText += `> - ${wordInfo.word}\n`;
-				}
+				const formattedWord = formatWordWithRuby(wordInfo.word, wordInfo.reading, furiganaMap);
+				analysisText += `> - ${formattedWord}\n`;
 
 				// Second level bullets: definitions
 				if (wordInfo.definitions) {
@@ -332,15 +382,61 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo) {
 	}
 }
 export default class IchiMoePlugin extends Plugin {
+	private furiganaMap: Map<string, FuriganaEntry[]> = new Map();
+
 	async onload() {
+		// Load JmdictFurigana data
+		await this.loadFuriganaData();
+
 		// Add command to analyze Japanese text
 		this.addCommand({
 			id: 'analyze-japanese-text',
 			name: 'Analyze Japanese text with ichi.moe',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				analyzeText(editor);
+				analyzeText(editor, this.furiganaMap);
 			},
 		});
+	}
+
+	private async loadFuriganaData() {
+		try {
+			const pluginFolder = this.manifest.dir; // This usually gives you the plugin's root directory
+			const binaryFilePath = normalizePath(`${pluginFolder}/JmdictFurigana.json.zip`);
+			console.log('binaryFilePath,', binaryFilePath);
+			const zipData = await this.app.vault.adapter.readBinary(binaryFilePath);
+
+			const zipContent = await JSZip.loadAsync(zipData);
+
+			// Get the JSON file from the zip
+			const jsonFile = Object.values(zipContent.files)[0];
+			if (!jsonFile) {
+				throw new Error('No files found in zip');
+			}
+			const jsonText = await jsonFile.async('text');
+			// trim initial byte order mark (BOM)
+			const jmdictData: JmdictEntry[] = JSON.parse(jsonText.trimStart());
+
+			// Build the lookup map
+			for (const entry of jmdictData) {
+				const key = `${entry.text}-${entry.reading}`;
+
+				// Convert kana-only entries to plain strings
+				const processedFurigana = entry.furigana.map((f) => {
+					if (!f.rt) {
+						// This is plain kana, we'll handle it differently in display
+						return f;
+					}
+					return f;
+				});
+
+				this.furiganaMap.set(key, processedFurigana);
+			}
+
+			new Notice(`Loaded ${this.furiganaMap.size} furigana entries`);
+		} catch (error) {
+			console.error('Failed to load JmdictFurigana data:', error);
+			new Notice('Could not load furigana data. Ruby tags will not be available.');
+		}
 	}
 
 	onunload() {}
