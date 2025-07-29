@@ -210,11 +210,11 @@ function parseIchiMoeResponse(html: string, originalText: string): SentenceInfo 
 	});
 	const romanization = romanizationParts.length > 0 ? romanizationParts.join(' ') : undefined;
 
-	// Parse words from the first visible gloss-row
-	const firstGlossRow = $('.gloss-row').not('.hidden').first();
-
-	if (firstGlossRow.length > 0) {
-		const glossElements = firstGlossRow.find('.gloss');
+	// Parse words from all visible gloss-rows
+	const glossRows = $('.gloss-row').not('.hidden');
+	glossRows.each((rowIndex: number, rowElement: Element) => {
+		const $glossRow = $(rowElement);
+		const glossElements = $glossRow.find('.gloss');
 
 		glossElements.each((index: number, element: Element) => {
 			const $glossElement = $(element);
@@ -353,7 +353,7 @@ function parseIchiMoeResponse(html: string, originalText: string): SentenceInfo 
 				}
 			}
 		});
-	}
+	});
 
 	return {
 		original: originalText,
