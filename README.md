@@ -1,13 +1,12 @@
 # Ichi.moe Japanese Analyzer for Obsidian
 
-An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe) and inserts word definitions and readings directly into your notes.
+An Obsidian plugin that analyzes Japanese text using Ichiran and [ichi.moe](https://ichi.moe), and inserts readings and word definitions directly into your notes.
 
 ## Features
 
 - **Smart Text Selection**: Analyzes selected text or current line if no selection
+- **Analysis section**: Adds a collapsible Obisdian callout with the text's furigana (kanji with readings on top), and tucks all further details inside the callout
 - **Word Breakdown**: Shows individual word definitions with readings (furigana)
-- **Romanization**: Displays romanized version when available
-- **Clean Formatting**: Inserts analysis in a well-formatted, readable format
 
 ## Usage
 
@@ -22,18 +21,30 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 **Generated output**:
 
 ```markdown
-> [!IchiMoe]- 日本語の勉強が好き
+> [!IchiMoe]- <ruby>日本<rt>にほん</rt></ruby><ruby>語<rt>ご</rt></ruby>の<ruby>勉<rt>べん</rt></ruby><ruby>強<rt>きょう</rt></ruby>が<ruby>好<rt>す</rt></ruby>き
 >
-> - 日本語 【にほんご】
+> - <ruby>日本<rt>にほん</rt></ruby><ruby>語<rt>ご</rt></ruby>
 >   - (n) Japanese (language)
 > - の
 >   - (prt) indicates possessive (☝️ occasionally ん, orig. written 乃 or 之)
 >   - (prt) nominalizes verbs and adjectives
 >   - (prt) substitutes for "ga" in subordinate phrases
-> - 勉強 【べんきょう】
+> - <ruby>勉<rt>べん</rt></ruby><ruby>強<rt>きょう</rt></ruby>
 >   - (n,vs,vt) study
->     …
 ```
+
+This looks like this (with the caveat that GitHub's Markdown doesn't render the Obsidian callout):
+
+> [!IchiMoe]- <ruby>日本<rt>にほん</rt></ruby><ruby>語<rt>ご</rt></ruby>の<ruby>勉<rt>べん</rt></ruby><ruby>強<rt>きょう</rt></ruby>が<ruby>好<rt>す</rt></ruby>き
+>
+> - <ruby>日本<rt>にほん</rt></ruby><ruby>語<rt>ご</rt></ruby>
+>   - (n) Japanese (language)
+> - の
+>   - (prt) indicates possessive (☝️ occasionally ん, orig. written 乃 or 之)
+>   - (prt) nominalizes verbs and adjectives
+>   - (prt) substitutes for "ga" in subordinate phrases
+> - <ruby>勉<rt>べん</rt></ruby><ruby>強<rt>きょう</rt></ruby>
+>   - (n,vs,vt) study
 
 ## Installation
 
@@ -52,7 +63,7 @@ An Obsidian plugin that analyzes Japanese text using [ichi.moe](https://ichi.moe
 
 ## Requirements
 
-- Internet connection (to access ichi.moe API)
+- Internet connection (to access https://ichi.moe API)
 - Obsidian v0.15.0 or higher
 
 ## How It Works
@@ -66,11 +77,13 @@ The plugin:
 
 ## Privacy
 
-This plugin sends text to the external service ichi.moe for analysis. Only the text you explicitly analyze is sent. No other data from your vault is transmitted.
+This plugin sends text to the external service https://ichi.moe for analysis. Only the text you explicitly analyze is sent. No other data from your vault is transmitted.
 
 ## Credits
 
-- Powered by [ichi.moe](https://ichi.moe) and Ichiran, an excellent Japanese text analyzer
+- Powered by Ichiran/[ichi.moe](https://ichi.moe) and Ichiran, an excellent Japanese text analyzer
+- Ruby tag functionality powered by [JmdictFurigana](https://github.com/Doublevil/JmdictFurigana)
+- JmdictFurigana and Ichiran both build atop the legendary [JMdict](https://en.wikipedia.org/wiki/JMdict) project
 
 ## Development
 
@@ -90,4 +103,4 @@ npm run build
 
 ## License
 
-MIT License - see LICENSE file for details.
+[0BSD](https://choosealicense.com/licenses/0bsd/) — see LICENSE file for details.
