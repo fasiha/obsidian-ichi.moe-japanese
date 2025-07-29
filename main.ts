@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { Element } from 'cheerio';
-import { Editor, FileSystemAdapter, MarkdownView, normalizePath, Notice, Plugin, requestUrl } from 'obsidian';
+import { Editor, MarkdownView, normalizePath, Notice, Plugin, requestUrl } from 'obsidian';
 import * as JSZip from 'jszip';
 
 interface Alternative {
@@ -8,7 +8,7 @@ interface Alternative {
 	definitions: string[];
 }
 
-interface FuriganaEntry {
+interface Furigana {
 	ruby: string;
 	rt?: string;
 }
@@ -16,7 +16,7 @@ interface FuriganaEntry {
 interface JmdictEntry {
 	text: string;
 	reading: string;
-	furigana: FuriganaEntry[];
+	furigana: Furigana[];
 }
 
 interface WordInfo {
@@ -52,7 +52,7 @@ function getTextToAnalyze(editor: Editor): string {
 /**
  * Send text to ichi.moe and parse the response
  */
-async function analyzeText(editor: Editor, furiganaMap: Map<string, FuriganaEntry[]>) {
+async function analyzeText(editor: Editor, furiganaMap: Map<string, Furigana[]>) {
 	const text = getTextToAnalyze(editor);
 
 	if (!text) {
@@ -78,10 +78,10 @@ async function analyzeText(editor: Editor, furiganaMap: Map<string, FuriganaEntr
 function formatWordWithRuby(
 	word: string,
 	reading: string | undefined,
-	furiganaMap: Map<string, FuriganaEntry[]>
-): string {
+	furiganaMap: Map<string, Furigana[]>
+): { result: string; furiganaData?: Furigana[] } {
 	if (!reading) {
-		return word;
+		return { result: word };
 	}
 
 	const key = `${word}-${reading}`;
@@ -89,7 +89,7 @@ function formatWordWithRuby(
 
 	if (!furiganaData) {
 		// Fallback to bracket notation
-		return `${word} 【${reading}】`;
+		return { result: `${word} 【${reading}】` };
 	}
 
 	// Build ruby tags from furigana data
@@ -104,7 +104,64 @@ function formatWordWithRuby(
 		}
 	}
 
-	return result;
+	return { result, furiganaData };
+}
+
+/**
+ * Apply ruby tags to the entire sentence using identified words
+ */
+function applySentenceRubyTags(originalSentence: string, allFurigana: Furigana[][]): string {
+	// Strip leading and trailing non-kanji (no rt) strings from each furigana array
+	const stripped = allFurigana
+		.map((arr) => {
+			// strip leading and trailing non-kanji strings
+			const firstIdx = arr.findIndex((obj) => obj.rt);
+			const lastIdx = arr.findLastIndex((obj) => !!obj.rt);
+			const subArray = arr.slice(firstIdx, lastIdx + 1);
+			const base = subArray.map((obj) => obj.ruby).join('');
+			return { furigana: subArray, base };
+		})
+		.sort((a, b) => b.base.length - a.base.length);
+
+	let result: (string | Furigana[])[] = [originalSentence];
+
+	// Continually split the sentence into strings where we haven't mapped any furigana versus furigana.
+	// This guarantees that we only add furigana to substrings that we haven't already mapped.
+	for (const { base, furigana } of stripped) {
+		let subIdx = -1;
+		while ((subIdx = result.findIndex((x) => typeof x === 'string' && x.includes(base))) >= 0) {
+			const substring = result[subIdx];
+			if (typeof substring !== 'string') continue;
+
+			const farLeft = result.slice(0, subIdx);
+			const farRight = result.slice(subIdx + 1);
+
+			const idx = substring.indexOf(base);
+			const left = substring.slice(0, idx);
+			const right = substring.slice(idx + base.length);
+
+			// try to combine adjacent strings
+			if (typeof farLeft[farLeft.length - 1] === 'string') {
+				farLeft[farLeft.length - 1] += left;
+			} else {
+				farLeft.push(left);
+			}
+
+			if (typeof farRight[0] === 'string') {
+				farRight[0] = `${right}${farRight[0]}`;
+			} else {
+				farRight.unshift(right);
+			}
+
+			result = [...farLeft, furigana, ...farRight];
+		}
+	}
+
+	return result
+		.map((x) =>
+			typeof x === 'string' ? x : x.map(({ ruby, rt }) => (rt ? `<ruby>${ruby}<rt>${rt}</rt></ruby>` : ruby)).join('')
+		)
+		.join('');
 }
 
 /**
@@ -308,7 +365,7 @@ function parseIchiMoeResponse(html: string, originalText: string): SentenceInfo 
 /**
  * Insert the analysis into the editor
  */
-function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap: Map<string, FuriganaEntry[]>) {
+function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap: Map<string, Furigana[]>) {
 	// Get the end position of selection, or current cursor if no selection
 	const selection = editor.getSelection();
 	let insertPosition;
@@ -325,10 +382,10 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 	const lineLength = editor.getLine(insertPosition.line).length;
 	const endOfLinePosition = { line: insertPosition.line, ch: lineLength };
 
-	let analysisText = '\n';
+	let analysisText = '';
 
-	// Create callout with collapsible format
-	analysisText += `> [!IchiMoe]- ${sentenceInfo.original}\n`;
+	// Maps "ruby"s to "rt"s
+	const allFurigana: Furigana[][] = [];
 
 	// Add word breakdown
 	if (sentenceInfo.words.length > 0) {
@@ -344,17 +401,25 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 					const altReading = match?.[2]?.trim();
 
 					// Second level: alternative readings with ruby tags
-					const formattedAlt = formatWordWithRuby(altWord, altReading, furiganaMap);
+					const { result: formattedAlt, furiganaData } = formatWordWithRuby(altWord, altReading, furiganaMap);
 					analysisText += `>   - ${formattedAlt}\n`;
 
 					// Third level: definitions for this reading
 					alternative.definitions.forEach((def) => {
 						analysisText += `>     - ${def}\n`;
 					});
+
+					if (furiganaData) {
+						allFurigana.push(furiganaData);
+					}
 				});
 			} else {
 				// Single alternative case - two-level structure
-				const formattedWord = formatWordWithRuby(wordInfo.word, wordInfo.reading, furiganaMap);
+				const { result: formattedWord, furiganaData } = formatWordWithRuby(
+					wordInfo.word,
+					wordInfo.reading,
+					furiganaMap
+				);
 				analysisText += `> - ${formattedWord}\n`;
 
 				// Second level bullets: definitions
@@ -362,6 +427,11 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 					wordInfo.definitions.forEach((def) => {
 						analysisText += `>   - ${def}\n`;
 					});
+				}
+
+				// Same as above
+				if (furiganaData) {
+					allFurigana.push(furiganaData);
 				}
 			}
 		});
@@ -372,9 +442,14 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 
 	analysisText += '\n';
 
+	// Now go back and try to add ruby tags to the sentence for the callout
+	const rubyTaggedSentence = applySentenceRubyTags(sentenceInfo.original, allFurigana);
+	const head = `\n> [!IchiMoe]- ${rubyTaggedSentence}\n`;
+
 	// Insert at end of line position
 	try {
-		editor.replaceRange(analysisText, endOfLinePosition);
+		const final = `${head}${analysisText}`;
+		editor.replaceRange(final, endOfLinePosition);
 		new Notice(`Analysis inserted for: ${sentenceInfo.original}`);
 	} catch (error) {
 		console.error('IchiMoe: Error inserting analysis:', error);
@@ -382,7 +457,7 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 	}
 }
 export default class IchiMoePlugin extends Plugin {
-	private furiganaMap: Map<string, FuriganaEntry[]> = new Map();
+	private furiganaMap: Map<string, Furigana[]> = new Map();
 
 	async onload() {
 		// Load JmdictFurigana data
@@ -402,7 +477,6 @@ export default class IchiMoePlugin extends Plugin {
 		try {
 			const pluginFolder = this.manifest.dir; // This usually gives you the plugin's root directory
 			const binaryFilePath = normalizePath(`${pluginFolder}/JmdictFurigana.json.zip`);
-			console.log('binaryFilePath,', binaryFilePath);
 			const zipData = await this.app.vault.adapter.readBinary(binaryFilePath);
 
 			const zipContent = await JSZip.loadAsync(zipData);
