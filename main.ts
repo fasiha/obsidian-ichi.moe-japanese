@@ -475,8 +475,7 @@ export default class IchiMoePlugin extends Plugin {
 
 	private async loadFuriganaData() {
 		try {
-			const pluginFolder = this.manifest.dir; // This usually gives you the plugin's root directory
-			const binaryFilePath = normalizePath(`${pluginFolder}/JmdictFurigana.json.zip`);
+			const binaryFilePath = normalizePath('/JmdictFurigana.json.zip');
 			const zipData = await this.app.vault.adapter.readBinary(binaryFilePath);
 
 			const zipContent = await JSZip.loadAsync(zipData);
@@ -493,17 +492,7 @@ export default class IchiMoePlugin extends Plugin {
 			// Build the lookup map
 			for (const entry of jmdictData) {
 				const key = `${entry.text}-${entry.reading}`;
-
-				// Convert kana-only entries to plain strings
-				const processedFurigana = entry.furigana.map((f) => {
-					if (!f.rt) {
-						// This is plain kana, we'll handle it differently in display
-						return f;
-					}
-					return f;
-				});
-
-				this.furiganaMap.set(key, processedFurigana);
+				this.furiganaMap.set(key, entry.furigana);
 			}
 
 			new Notice(`Loaded ${this.furiganaMap.size} furigana entries`);
