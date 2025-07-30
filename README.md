@@ -61,6 +61,18 @@ This looks like this (with the caveat that GitHub's Markdown doesn't render the 
 2. Extract the files to `<vault>/.obsidian/plugins/obsidian-ichi.moe-japanese/`
 3. Reload Obsidian and enable the plugin in Settings
 
+### Additional Setup Required
+
+**Important**: For ruby tag functionality, you need to download the furigana dataset:
+
+1. Download `JmdictFurigana.json.zip` from the [JmdictFurigana releases](https://github.com/Doublevil/JmdictFurigana/releases)
+2. Place the zip file in your vault (e.g., at the root level: `/JmdictFurigana.json.zip`)
+3. Open Obsidian Settings → Community Plugins → Ichi.moe Japanese Analyzer
+4. Configure the file path to point to your zip file location
+5. Click "Reload" to load the furigana data
+
+Without this file, the plugin will still work but will use simple bracket notation instead of ruby tags.
+
 ## Requirements
 
 - Internet connection (to access https://ichi.moe API)
@@ -74,6 +86,17 @@ The plugin:
 2. Parses the HTML response to extract word definitions and readings
 3. Formats the results in a clean, readable markdown format
 4. Inserts the analysis into your current note
+
+## Settings
+
+The plugin includes a settings page where you can:
+
+- **Configure JmdictFurigana file path**: Set the location of your JmdictFurigana.json.zip file
+- **Reload furigana data**: Refresh the data without restarting Obsidian
+- **View setup instructions**: Step-by-step guide for configuration
+- **Check status**: See how many furigana entries are currently loaded
+
+Access settings via: Settings → Community Plugins → Ichi.moe Japanese Analyzer → Settings
 
 ## Privacy
 

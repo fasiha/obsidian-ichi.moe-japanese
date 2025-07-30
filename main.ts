@@ -1,6 +1,16 @@
 import * as cheerio from 'cheerio';
 import { Element } from 'cheerio';
-import { Editor, MarkdownView, normalizePath, Notice, Plugin, requestUrl } from 'obsidian';
+import {
+	App,
+	Editor,
+	MarkdownView,
+	normalizePath,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	requestUrl,
+	Setting,
+} from 'obsidian';
 import * as JSZip from 'jszip';
 
 interface Alternative {
@@ -32,6 +42,14 @@ interface SentenceInfo {
 	romanization?: string;
 	words: WordInfo[];
 }
+
+interface IchiMoeSettings {
+	jmdictFuriganaPath: string;
+}
+
+const DEFAULT_SETTINGS: IchiMoeSettings = {
+	jmdictFuriganaPath: '/JmdictFurigana.json.zip',
+};
 
 /**
  * Get selected text or current line if no selection
@@ -457,9 +475,12 @@ function insertAnalysis(editor: Editor, sentenceInfo: SentenceInfo, furiganaMap:
 	}
 }
 export default class IchiMoePlugin extends Plugin {
+	settings: IchiMoeSettings;
 	private furiganaMap: Map<string, Furigana[]> = new Map();
 
 	async onload() {
+		await this.loadSettings();
+
 		// Load JmdictFurigana data
 		await this.loadFuriganaData();
 
@@ -471,11 +492,31 @@ export default class IchiMoePlugin extends Plugin {
 				analyzeText(editor, this.furiganaMap);
 			},
 		});
+
+		// Add settings tab
+		this.addSettingTab(new IchiMoeSettingTab(this.app, this));
+	}
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
+	async reloadFuriganaData() {
+		this.furiganaMap.clear();
+		await this.loadFuriganaData();
+	}
+
+	getFuriganaEntryCount(): number {
+		return this.furiganaMap.size;
 	}
 
 	private async loadFuriganaData() {
 		try {
-			const binaryFilePath = normalizePath('/JmdictFurigana.json.zip');
+			const binaryFilePath = normalizePath(this.settings.jmdictFuriganaPath);
 			const zipData = await this.app.vault.adapter.readBinary(binaryFilePath);
 
 			const zipContent = await JSZip.loadAsync(zipData);
@@ -498,9 +539,75 @@ export default class IchiMoePlugin extends Plugin {
 			new Notice(`Loaded ${this.furiganaMap.size} furigana entries`);
 		} catch (error) {
 			console.error('Failed to load JmdictFurigana data:', error);
-			new Notice('Could not load furigana data. Ruby tags will not be available.');
+			new Notice(
+				`Could not load furigana data from ${this.settings.jmdictFuriganaPath}. Ruby tags will not be available.`
+			);
 		}
 	}
 
 	onunload() {}
+}
+
+class IchiMoeSettingTab extends PluginSettingTab {
+	plugin: IchiMoePlugin;
+
+	constructor(app: App, plugin: IchiMoePlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const { containerEl } = this;
+
+		containerEl.empty();
+
+		containerEl.createEl('h2', { text: 'Ichi.moe Japanese Analyzer Settings' });
+
+		new Setting(containerEl)
+			.setName('JmdictFurigana file path')
+			.setDesc(
+				'Path to the JmdictFurigana.json.zip file in your vault. Download from https://github.com/Doublevil/JmdictFurigana/releases'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('/JmdictFurigana.json.zip')
+					.setValue(this.plugin.settings.jmdictFuriganaPath)
+					.onChange(async (value) => {
+						this.plugin.settings.jmdictFuriganaPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Reload furigana data')
+			.setDesc('Reload the JmdictFurigana data from the current file path')
+			.addButton((button) =>
+				button
+					.setButtonText('Reload')
+					.setCta()
+					.onClick(async () => {
+						button.setButtonText('Reloading...');
+						button.setDisabled(true);
+						try {
+							await this.plugin.reloadFuriganaData();
+						} finally {
+							button.setButtonText('Reload');
+							button.setDisabled(false);
+						}
+					})
+			);
+
+		containerEl.createEl('h3', { text: 'Setup Instructions' });
+
+		const instructions = containerEl.createEl('div');
+		instructions.createEl('p', { text: '1. Download JmdictFurigana.json.zip from the JmdictFurigana releases page' });
+		instructions.createEl('p', { text: '2. Place the zip file in your vault (e.g., at the root level)' });
+		instructions.createEl('p', { text: '3. Update the file path above to match your file location' });
+		instructions.createEl('p', { text: '4. Click "Reload" to load the furigana data' });
+
+		containerEl.createEl('p', {
+			text: `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`,
+			cls: 'setting-item-description',
+		});
+	}
 }
