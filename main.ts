@@ -565,9 +565,7 @@ class IchiMoeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('JmdictFurigana file path')
-			.setDesc(
-				'Path to the JmdictFurigana.json.zip file in your vault. Download from https://github.com/Doublevil/JmdictFurigana/releases'
-			)
+			.setDesc('Path to the JmdictFurigana.json.zip file in your vault.')
 			.addText((text) =>
 				text
 					.setPlaceholder('/JmdictFurigana.json.zip')
@@ -577,6 +575,17 @@ class IchiMoeSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		// Create status element that we can update later
+		const statusEl = containerEl.createEl('p', {
+			text: `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`,
+			cls: 'setting-item-description',
+		});
+
+		// Helper function to update status
+		const updateStatus = () => {
+			statusEl.textContent = `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`;
+		};
 
 		new Setting(containerEl)
 			.setName('Reload furigana data')
@@ -593,6 +602,8 @@ class IchiMoeSettingTab extends PluginSettingTab {
 						} finally {
 							button.setButtonText('Reload');
 							button.setDisabled(false);
+							// Update the status after reload completes
+							updateStatus();
 						}
 					})
 			);
@@ -604,10 +615,5 @@ class IchiMoeSettingTab extends PluginSettingTab {
 		instructions.createEl('p', { text: '2. Place the zip file in your vault (e.g., at the root level)' });
 		instructions.createEl('p', { text: '3. Update the file path above to match your file location' });
 		instructions.createEl('p', { text: '4. Click "Reload" to load the furigana data' });
-
-		containerEl.createEl('p', {
-			text: `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`,
-			cls: 'setting-item-description',
-		});
 	}
 }
