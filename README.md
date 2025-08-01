@@ -63,9 +63,9 @@ This looks like this (with the caveat that GitHub's Markdown doesn't render the 
 
 ### Additional Setup Required
 
-**Important**: For ruby tag functionality, you need to download the furigana dataset:
+**Important**: For ruby tags showing how to pronounce kanji (i.e., <ruby>漢<rt>かん</rt></ruby><ruby>字<rt>じ</rt></ruby> instead of just 漢字), you need to download the pronunciation dataset:
 
-1. Download `JmdictFurigana.json.zip` from the [JmdictFurigana releases](https://github.com/Doublevil/JmdictFurigana/releases)
+1. Download a recent `JmdictFurigana.json.zip` from the [JmdictFurigana releases](https://github.com/Doublevil/JmdictFurigana/releases)
 2. Place the zip file in your vault (e.g., at the root level: `/JmdictFurigana.json.zip`)
 3. Open Obsidian Settings → Community Plugins → Ichi.moe Japanese Analyzer
 4. Configure the file path to point to your zip file location
@@ -104,7 +104,7 @@ This plugin sends text to the external service https://ichi.moe for analysis. On
 
 ## Credits
 
-- Powered by Ichiran/[ichi.moe](https://ichi.moe) and Ichiran, an excellent Japanese text analyzer
+- Powered by Ichiran and [ichi.moe](https://ichi.moe), an excellent Japanese text analyzer (this plugin is not endorsed by or affiliated by Ichiran or [ichi.moe](https://ichi.moe))
 - Ruby tag functionality powered by [JmdictFurigana](https://github.com/Doublevil/JmdictFurigana)
 - JmdictFurigana and Ichiran both build atop the legendary [JMdict](https://en.wikipedia.org/wiki/JMdict) project
 
@@ -112,7 +112,7 @@ This plugin sends text to the external service https://ichi.moe for analysis. On
 
 ```bash
 # Clone this repo
-git clone https://github.com/your-username/obsidian-ichi.moe-japanese.git
+git clone https://github.com/fasiha/obsidian-ichi.moe-japanese.git
 
 # Install dependencies
 npm install
@@ -123,6 +123,8 @@ npm run dev
 # Build for production
 npm run build
 ```
+
+Then copy the directory into `<your vault>/.obsidian/plugins/obsidian-ichi.moe-japanese`
 
 ## License
 
