@@ -488,7 +488,7 @@ export default class IchiMoePlugin extends Plugin {
 		this.addCommand({
 			id: 'analyze-japanese-text',
 			name: 'Analyze Japanese text with ichi.moe',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
+			editorCallback: (editor: Editor, _view: MarkdownView) => {
 				analyzeText(editor, this.furiganaMap);
 			},
 		});
@@ -505,16 +505,13 @@ export default class IchiMoePlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async reloadFuriganaData() {
-		this.furiganaMap.clear();
-		await this.loadFuriganaData();
-	}
-
 	getFuriganaEntryCount(): number {
 		return this.furiganaMap.size;
 	}
 
-	private async loadFuriganaData() {
+	async loadFuriganaData() {
+		this.furiganaMap.clear();
+
 		try {
 			const binaryFilePath = normalizePath(this.settings.jmdictFuriganaPath);
 			const zipData = await this.app.vault.adapter.readBinary(binaryFilePath);
@@ -556,12 +553,16 @@ class IchiMoeSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	statusText(): string {
+		return `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`;
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Ichi.moe Japanese Analyzer Settings' });
+		new Setting(containerEl).setName('Ichi.moe Japanese Analyzer Settings').setHeading();
 
 		new Setting(containerEl)
 			.setName('JmdictFurigana file path')
@@ -578,14 +579,9 @@ class IchiMoeSettingTab extends PluginSettingTab {
 
 		// Create status element that we can update later
 		const statusEl = containerEl.createEl('p', {
-			text: `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`,
+			text: this.statusText(),
 			cls: 'setting-item-description',
 		});
-
-		// Helper function to update status
-		const updateStatus = () => {
-			statusEl.textContent = `Current status: ${this.plugin.getFuriganaEntryCount()} furigana entries loaded`;
-		};
 
 		new Setting(containerEl)
 			.setName('Reload furigana data')
@@ -598,22 +594,35 @@ class IchiMoeSettingTab extends PluginSettingTab {
 						button.setButtonText('Reloading...');
 						button.setDisabled(true);
 						try {
-							await this.plugin.reloadFuriganaData();
+							await this.plugin.loadFuriganaData();
 						} finally {
 							button.setButtonText('Reload');
 							button.setDisabled(false);
 							// Update the status after reload completes
-							updateStatus();
+							statusEl.textContent = this.statusText();
 						}
 					})
 			);
 
-		containerEl.createEl('h3', { text: 'Setup Instructions' });
+		new Setting(containerEl).setName('Setup Instructions').setHeading();
 
-		const instructions = containerEl.createEl('div');
-		instructions.createEl('p', { text: '1. Download JmdictFurigana.json.zip from the JmdictFurigana releases page' });
-		instructions.createEl('p', { text: '2. Place the zip file in your vault (e.g., at the root level)' });
-		instructions.createEl('p', { text: '3. Update the file path above to match your file location' });
-		instructions.createEl('p', { text: '4. Click "Reload" to load the furigana data' });
+		const instructionsList = containerEl.createEl('ol');
+
+		// Step 1 with link
+		const step1 = instructionsList.createEl('li');
+		step1.appendText('Visit the ');
+		const link = step1.createEl('a', {
+			href: 'https://github.com/Doublevil/JmdictFurigana/releases',
+			text: 'JmdictFurigana releases page',
+		});
+		link.setAttr('target', '_blank');
+
+		const step2 = instructionsList.createEl('li');
+		step2.appendText('Download a recent ');
+		step2.createEl('code', { text: 'JmdictFurigana.json.zip' });
+
+		instructionsList.createEl('li', { text: 'Place the zip file in your vault (e.g., at the root level)' });
+		instructionsList.createEl('li', { text: 'Update the file path above to match your file location' });
+		instructionsList.createEl('li', { text: 'Click "Reload" to load the furigana data' });
 	}
 }
